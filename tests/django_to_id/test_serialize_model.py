@@ -4,6 +4,8 @@ from django_to_id.models import *
 from django.contrib.auth.models import User
 from django.contrib.gis.geos.collections import Point
 from django_to_id.serializers import serialize_node
+
+
 class TestSequenceFunctions(unittest.TestCase):
 
     def setUp(self):
@@ -25,7 +27,6 @@ class TestSequenceFunctions(unittest.TestCase):
 
     def test_serialize_node(self):
         xml = serialize_node(self.model_node)
-        print xml
         self.assertTrue(xml)
 
 

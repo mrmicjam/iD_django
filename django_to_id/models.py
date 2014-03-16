@@ -21,3 +21,16 @@ class NodeTag(models.Model):
     node = models.ForeignKey(Node, related_name="tags")
     key = models.CharField(max_length=50)
     val = models.CharField(max_length=500)
+
+
+class Way(models.Model):
+    changeset = models.ForeignKey(Changeset, related_name="ways")
+    nodes = models.ManyToManyField(Node)
+    timestamp = models.DateTimeField(auto_now = True)
+
+
+class WayTag(models.Model):
+    """key/val tags for nodes"""
+    way = models.ForeignKey(Way, related_name="tags")
+    key = models.CharField(max_length=50)
+    val = models.CharField(max_length=500)

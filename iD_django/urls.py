@@ -10,9 +10,13 @@ urlpatterns = patterns('',
     # url(r'^$', 'iD_django.views.home', name='home'),
     # url(r'^iD_django/', include('iD_django.foo.urls')),
 
-    # Uncomment the admin/doc line below to enable admin documentation:
     url(r'^admin/doc/', include('django.contrib.admindocs.urls')),
     url(r'^api/0.6/node/(?P<id>.+)', views.NodeViewSet.as_view()),
+    url(r'^api/0.6/node/$', views.NodeViewSetList.as_view()),
+
+    url(r'^api/0.6/way/(?P<id>.+)', views.WayViewSet.as_view()),
+    url(r'^api/0.6/way/$', views.WayViewSetList.as_view()),
+
     # Uncomment the next line to enable the admin:
     url(r'^admin/', include(admin.site.urls)),
 )
