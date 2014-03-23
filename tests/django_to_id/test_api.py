@@ -1,9 +1,9 @@
 from rest_framework.test import APITestCase, APIRequestFactory, APIClient
 import unittest
-from django_to_id.models import *
+from osm_api.models import *
 from django.contrib.auth.models import User
 from django.contrib.gis.geos.collections import Point
-from django_to_id.serializers import serialize_node
+from osm_api.serializers import serialize_node
 
 
 class TestNode(APITestCase):
@@ -78,7 +78,7 @@ class TestWay(APITestCase):
         self.model_way.changeset = model_changeset
         self.model_way.save()
         for coord in ((-112.0, 33.4), (-111.8, 33.4), (-111.9, 33.2), (-112.0, 33.4)):
-            pnt = Point(-112.0, 33.4)
+            pnt = Point(*coord)
             #create the node that make a triangle
             model_node = Node()
             model_node.changeset = model_changeset
@@ -92,5 +92,6 @@ class TestWay(APITestCase):
         response = self.client.get(url, format='xml')
 
         returned_data = response.content
-        print returned_data
         self.assertTrue(returned_data)
+
+

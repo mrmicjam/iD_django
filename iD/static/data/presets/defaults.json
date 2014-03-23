@@ -1,0 +1,41 @@
+{
+    "area": [
+        "category-landuse",
+        "building",
+        "leisure/park",
+        "natural/water",
+        "amenity/hospital",
+        "amenity/place_of_worship",
+        "amenity/cafe",
+        "amenity/restaurant",
+        "other_area"
+    ],
+    "line": [
+        "category-road",
+        "category-rail",
+        "category-path",
+        "category-water",
+        "power/line",
+        "other"
+    ],
+    "point": [
+        "leisure/park",
+        "amenity/hospital",
+        "amenity/place_of_worship",
+        "amenity/cafe",
+        "amenity/restaurant",
+        "amenity/bar",
+        "amenity/bank",
+        "shop/supermarket",
+        "other"
+    ],
+    "vertex": [
+        "highway/crossing",
+        "railway/level_crossing",
+        "highway/traffic_signals",
+        "highway/turning_circle",
+        "highway/mini_roundabout",
+        "highway/motorway_junction",
+        "other"
+    ]
+}
