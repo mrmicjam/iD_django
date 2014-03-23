@@ -153,6 +153,52 @@ class WayViewSetList(APIView):
         kwargs = {'content_type': 'application/json'}
         return HttpResponse(data, **kwargs)
 
+class RelationViewSetList(APIView):
+
+    def post(self, request, format=None):
+        """
+        <osm>
+            <relation id="1" changeset="12">
+              <tag k="type" v="multipolygon" />
+              <member type="node" role="stop" ref="123"/>
+              <member type="way" ref="1" role="outer" />
+              <member type="way" ref="2" role="inner" />
+              <member type="way" ref="3" role="inner" />
+            </relation>
+        </osm>
+        """
+
+        bs = BeautifulSoup(request.DATA)
+        xml_relation = bs.find("relation")
+        model_relation = Relation()
+        model_relation.changeset_id = int(xml_relation.get("changeset"))
+        model_relation.save()
+        for member in xml_relation.findall("member"):
+            if member.get("type") == "node":
+                node_id = int(member.get("ref"))
+                role = member.get("role", None)
+                RelationToNode.objects.create(relation=model_relation, node=Node.objects.get(node_id), role=role)
+
+            elif member.get("type") == "way":
+                way_id = int(member.get("ref"))
+                role = member.get("role", None)
+                RelationToWay.objects.create(relation=model_relation, way=Way.objects.get(way_id), role=role)
+
+        for tag in xml_relation.findall("tag"):
+            RelationTag.objects.create(key = tag.get("k"), val = tag.get("val"))
+
+        data = serialize_relation(model_way)
+        kwargs = {'content_type': 'application/json'}
+        return HttpResponse(data, **kwargs)
+
+
+
+
+
+
+
+
+
 
 
 
