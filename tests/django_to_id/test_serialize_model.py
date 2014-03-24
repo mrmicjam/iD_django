@@ -2,7 +2,7 @@ __author__ = 'micah'
 import unittest
 from osm_api.models import *
 from django.contrib.auth.models import User
-from django.contrib.gis.geos.collections import Point
+from django.contrib.gis.geos.collections import Point, Polygon
 from osm_api.serializers import *
 
 class TestSequenceFunctions(unittest.TestCase):
@@ -63,8 +63,39 @@ class TestSequenceFunctions(unittest.TestCase):
 
         RelationToWay.objects.create(relation=model_relation, way=model_way, role="outer")
         xml = serialize_relation(model_relation)
+        self.assertTrue(xml)
+
+    def test_serialize_map(self):
+        model_way = Way()
+        model_way.changeset = self.model_changeset
+        model_way.save()
+        for coord in ((-112.0, 33.4), (-111.8, 33.4), (-111.9, 33.2), (-112.0, 33.4)):
+            pnt = Point(*coord)
+            #create the node that make a triangle
+            model_node = Node()
+            model_node.changeset = self.model_changeset
+            model_node.geom = pnt
+            model_node.save()
+            model_way.nodes.add(model_node)
+
+        model_relation = Relation()
+        model_relation.changeset = self.model_changeset
+        model_relation.save()
+
+        RelationToWay.objects.create(relation=model_relation, way=model_way, role="outer")
+
+        #define the map boundaries
+        left = -114.101
+        bottom = 31.21
+        right = -110.01
+        top = 35.22
+        poly = Polygon(((left, bottom), (left, top), (right, top), (right, bottom), (left, bottom)))
+        nodes = Node.objects.filter(geom__within=poly)
+
+        xml = serialize_map((left, bottom, right, top), nodes)
         print xml
         self.assertTrue(xml)
+
 
 
 

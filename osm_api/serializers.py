@@ -179,7 +179,7 @@ def serialize_relation(model_relation, envelope=True, filter_nodes_ids=None, ret
 
 def serialize_map(bounds, nodes):
     # get the ways
-    li_children = [etree.Element("bounds", minlat=bounds[1], minlon=bounds[0], maxlat=bounds[3], maxlon=bounds[2]),]
+    li_children = [etree.Element("bounds", minlat=str(bounds[1]), minlon=str(bounds[0]), maxlat=str(bounds[3]), maxlon=str(bounds[2]))]
     filter_node_ids = [nd.id for nd in nodes]
     for node in nodes:
         xml_node = serialize_node(node, envelope=False, return_format="xml")
@@ -191,6 +191,9 @@ def serialize_map(bounds, nodes):
             xml_rel = serialize_way(relation, envelope=False, filter_nodes_ids=filter_node_ids, return_format="xml")
             li_children.append(xml_rel)
 
+    root = etree.Element('osm')
+    for child in li_children:
+        root.append(child)
 
-
-
+    s = etree.tostring(root, pretty_print=True)
+    return s
