@@ -90,9 +90,9 @@ class TestSequenceFunctions(unittest.TestCase):
         right = -110.01
         top = 35.22
         poly = Polygon(((left, bottom), (left, top), (right, top), (right, bottom), (left, bottom)))
-        nodes = Node.objects.filter(geom__within=poly)
+        #nodes = Node.objects.filter(geom__within=poly)
 
-        xml = serialize_map((left, bottom, right, top), nodes)
+        xml = serialize_map((left, bottom, right, top))
         print xml
         self.assertTrue(xml)
 

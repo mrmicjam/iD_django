@@ -20,7 +20,10 @@ urlpatterns = patterns('',
     url(r'^api/0.6/relation/(?P<id>.+)', views.RelationViewSet.as_view()),
     url(r'^api/0.6/relation/$', views.RelationViewSetList.as_view()),
 
+    url(r'^api/0.6/changeset/create', views.create_changeset),
+    url(r'^api/0.6/changeset/[^/]+/upload', views.upload_change),
 
+    url(r'^oauth/request_token', views.oauth_token),
     url(r'^api/capabilities', views.capabilities),
     url(r'^api/0.6/map', views.MapViewSet.as_view()),
 

@@ -1,6 +1,6 @@
 from django.contrib.gis.db import models
 from django.contrib.auth.models import User
-
+from django.contrib.gis.geos.collections import Point, Polygon
 
 class Changeset(models.Model):
     created_by = models.ForeignKey(User)
@@ -25,8 +25,32 @@ class NodeTag(models.Model):
 
 class Way(models.Model):
     changeset = models.ForeignKey(Changeset, related_name="ways")
-    nodes = models.ManyToManyField(Node)
+    nodes = models.ManyToManyField(Node, through='WayNodes')
     timestamp = models.DateTimeField(auto_now=True)
+    geom = models.PolygonField(blank=True, null=True)
+
+
+    def update_geom(self):
+        li_coords = []
+        for waynode in self.waynodes.all():
+            coord = waynode.node.geom.coords
+            li_coords.append(coord)
+
+        tpl_coords = tuple(li_coords)
+        poly = Polygon(tpl_coords)
+        self.geom = poly
+        self.save()
+
+    objects = models.GeoManager()
+
+class WayNodes(models.Model):
+    way = models.ForeignKey(Way, related_name="waynodes")
+    node = models.ForeignKey(Node)
+    idx = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        db_table = u'osm_api_way_nodes'
+        ordering = ['idx']
 
 
 class WayTag(models.Model):
@@ -39,7 +63,7 @@ class WayTag(models.Model):
 class Relation(models.Model):
     changeset = models.ForeignKey(Changeset, related_name="relations")
     nodes = models.ManyToManyField(Node, through='RelationToNode')
-    ways = models.ManyToManyField(Way,  through='RelationToWay')
+    ways = models.ManyToManyField(Way, through='RelationToWay')
     timestamp = models.DateTimeField(auto_now=True)
 
 

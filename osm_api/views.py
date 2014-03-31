@@ -9,7 +9,8 @@ from django.contrib.gis.geos.collections import Point
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.gis.geos import Polygon
-
+from django.views.decorators.csrf import csrf_exempt
+from lxml import etree
 
 # TODO: capabilites
 # http://www.openstreetmap.org/api/capabilities
@@ -32,7 +33,7 @@ def capabilities(request):
     xml_data = """<osm version="0.6" generator="OpenStreetMap server" copyright="OpenStreetMap and contributors" attribution="http://www.openstreetmap.org/copyright" license="http://opendatacommons.org/licenses/odbl/1-0/">
                   <api>
                     <version minimum="0.6" maximum="0.6"/>
-                    <area maximum="0.25"/>
+                    <area maximum="10000"/>
                     <tracepoints per_page="5000"/>
                     <waynodes maximum="2000"/>
                     <changesets maximum_elements="50000"/>
@@ -42,6 +43,21 @@ def capabilities(request):
                 </osm>"""
     kwargs = {'content_type': 'application/xml'}
     return HttpResponse(xml_data, **kwargs)
+
+@csrf_exempt
+def oauth_token(request):
+    kwargs = {'content_type': 'text/html'}
+    return HttpResponse("oauth_token=GhrEMArAJuBLrIc0nE807MpMbRGvpVUNjdf5IyBs&oauth_token_secret=SdZyXGWlSIQLskeHh8NAuMDMhSKquVnNMOYSNtC2", **kwargs)
+
+@csrf_exempt
+def create_changeset(request):
+    model_change = Changeset()
+    model_change.created_by = User.objects.all()[0];
+    model_change.save()
+    kwargs = {'content_type': 'text/html'}
+    return HttpResponse(str(model_change.id), **kwargs)
+
+
 
 
 
@@ -96,6 +112,8 @@ def capabilities(request):
 </diffResult>
 """
 
+
+
 #http://www.openstreetmap.org/api/0.6/changeset/21273202/close
 
 
@@ -114,6 +132,90 @@ class MapViewSet(APIView):
         xml = serialize_map(poly, nodes)
 
 
+@csrf_exempt
+def upload_change(request):
+    """
+    ###POST
+    <osmCh<?xml version="1.0"?>
+    <osmChange version="0.3" generator="iD">
+        <create>
+            <node id="-1" lon="-112.00164795458814" lat="33.3997713112705" version="0" changeset="9"/>
+            <node id="-4" lon="-111.99979153235213" lat="33.39915424545651" version="0" changeset="9"/>
+            <node id="-7" lon="-112.00120103812391" lat="33.39780529562679" version="0" changeset="9"/>
+            <node id="-10" lon="-112.00353875501368" lat="33.39856587629712" version="0" changeset="9"/>
+            <way id="-1" version="0" changeset="9">
+                <nd ref="-1"/>
+                <nd ref="-4"/>
+                <nd ref="-7"/>
+                <nd ref="-10"/>
+                <nd ref="-1"/>
+                <tag k="building" v="yes"/>
+                <tag k="name" v="asdf"/>
+            </way>
+        </create>
+        <modify/>
+        <delete if-unused="true"/>
+    </osmChange>
+
+    ###RESPONSE
+    <?xml version="1.0" encoding="UTF-8"?>
+    <diffResult version="0.6" generator="OpenStreetMap server" copyright="OpenStreetMap and contributors" attribution="http://www.openstreetmap.org/copyright" license="http://opendatacommons.org/licenses/odbl/1-0/">
+      <node old_id="-1" new_id="2755562774" new_version="1"/>
+      <node old_id="-4" new_id="2755562775" new_version="1"/>
+      <node old_id="-7" new_id="2755562776" new_version="1"/>
+      <node old_id="-10" new_id="2755562777" new_version="1"/>
+      <way old_id="-1" new_id="270526825" new_version="1"/>
+    </diffResult>
+    """
+    root = etree.Element('diffResult', version="0.6", generator="OpenStreetMap server", copyright="OpenStreetMap and contributors", attribution="http://www.openstreetmap.org/copyright", license="http://opendatacommons.org/licenses/odbl/1-0/")
+    bs = BeautifulSoup(request.body)
+    xml_root = bs.find('create')
+    dct_tmp_to_id = {}
+    for xml_node in xml_root.findAll("node"):
+        tmp_id = int(xml_node.get("id"))
+        if tmp_id > 0:
+            continue
+
+        lat = float(xml_node.get("lat"))
+        lon = float(xml_node.get("lon"))
+        changeset_id = int(xml_node.get("changeset"))
+        model_node = Node()
+        model_node.changeset_id = changeset_id
+        pnt = Point(lon, lat)
+        model_node.geom = pnt
+        model_node.save()
+        root.append(etree.Element("node", old_id=str(tmp_id), new_id=str(model_node.id), new_version=str(1)))
+
+        dct_tmp_to_id[tmp_id] = model_node.id
+
+    for xml_way in xml_root.findAll("way"):
+        tmp_id = int(xml_way.get("id"))
+        if tmp_id > 0:
+            continue
+
+        model_way = Way()
+        model_way.changeset_id = int(xml_way.get("changeset"))
+        model_way.save()
+
+        root.append(etree.Element("way", old_id=str(tmp_id), new_id=str(model_way.id), new_version=str(1)))
+
+        cnt = 0
+        for nd in xml_way.findAll("nd"):
+            nd_id = dct_tmp_to_id.get(int(nd.get("ref")), int(nd.get("ref")))
+            model_node = Node.objects.get(pk = nd_id)
+            WayNodes.objects.create(way=model_way, node=model_node, idx=cnt)
+            cnt += 1
+
+        model_way.update_geom()
+
+        for tag in xml_way.findAll("tag"):
+            k = tag.get("k")
+            v = tag.get("v")
+            WayTag.objects.create(way=model_way, key=k, val=v)
+
+
+    kwargs = {'content_type': 'application/xml'}
+    return HttpResponse(etree.tostring(root, pretty_print=True), **kwargs)
 
 #TODO Changeset view
 #connection.js:227
@@ -122,26 +224,92 @@ class MapViewSet(APIView):
 # PUT: '/api/0.6/changeset/' + changeset_id + '/close'
 class ChangeSetViewSetList(APIView):
     """Retrieve a list of changesets or create a new one"""
-    authentication_classes = (SessionAuthentication, BasicAuthentication)
-    permission_classes = (IsAuthenticated,)
+    #authentication_classes = (SessionAuthentication, BasicAuthentication)
+    #permission_classes = (IsAuthenticated,)
 
+    @csrf_exempt
     def post(self, request, format=None):
         """
-        <osm>
-          <changeset>
-            <tag k="created_by" v="JOSM 1.61"/>
-            <tag k="comment" v="Just adding some streetnames"/>
-            ...
-          </changeset>
-          ...
-        </osm>"""
-        bs = BeautifulSoup(request.DATA)
-        xml_node = bs.find('changeset')
-        request.user
+        ###POST
+        <osmCh<?xml version="1.0"?>
+        <osmChange version="0.3" generator="iD">
+            <create>
+                <node id="-1" lon="-112.00164795458814" lat="33.3997713112705" version="0" changeset="9"/>
+                <node id="-4" lon="-111.99979153235213" lat="33.39915424545651" version="0" changeset="9"/>
+                <node id="-7" lon="-112.00120103812391" lat="33.39780529562679" version="0" changeset="9"/>
+                <node id="-10" lon="-112.00353875501368" lat="33.39856587629712" version="0" changeset="9"/>
+                <way id="-1" version="0" changeset="9">
+                    <nd ref="-1"/>
+                    <nd ref="-4"/>
+                    <nd ref="-7"/>
+                    <nd ref="-10"/>
+                    <nd ref="-1"/>
+                    <tag k="building" v="yes"/>
+                    <tag k="name" v="asdf"/>
+                </way>
+            </create>
+            <modify/>
+            <delete if-unused="true"/>
+        </osmChange>
 
-        lat = float(xml_node.get("lat"))
-        lon = float(xml_node.get("lon"))
-        pnt = Point(lon, lat)
+        ###RESPONSE
+        <?xml version="1.0" encoding="UTF-8"?>
+        <diffResult version="0.6" generator="OpenStreetMap server" copyright="OpenStreetMap and contributors" attribution="http://www.openstreetmap.org/copyright" license="http://opendatacommons.org/licenses/odbl/1-0/">
+          <node old_id="-1" new_id="2755562774" new_version="1"/>
+          <node old_id="-4" new_id="2755562775" new_version="1"/>
+          <node old_id="-7" new_id="2755562776" new_version="1"/>
+          <node old_id="-10" new_id="2755562777" new_version="1"/>
+          <way old_id="-1" new_id="270526825" new_version="1"/>
+        </diffResult>
+        """
+        root = etree.Element('diffResult', version="0.6", generator="OpenStreetMap server", copyright="OpenStreetMap and contributors", attribution="http://www.openstreetmap.org/copyright", license="http://opendatacommons.org/licenses/odbl/1-0/")
+        print request.DATA
+        bs = BeautifulSoup(request.DATA)
+        xml_root = bs.find('create')
+        dct_tmp_to_id = {}
+        for xml_node in xml_root.findall("node"):
+            tmp_id = int(xml_node.get("id"))
+            if tmp_id > 0:
+                continue
+
+            lat = float(xml_node.get("lat"))
+            lon = float(xml_node.get("lon"))
+            changeset_id = int(xml_node.get("changeset"))
+            model_node = Node()
+            model_node.changeset_id = changeset_id
+            pnt = Point(lon, lat)
+            model_node.geom = pnt
+            model_node.save()
+            root.append(etree.Element("node", old_id=tmp_id, new_id=model_node.id, new_version=1))
+
+            dct_tmp_to_id[tmp_id] = model_node.id
+
+        for xml_way in xml_root.findall("way"):
+            tmp_id = int(xml_way.get("id"))
+            if tmp_id > 0:
+                continue
+
+            model_way = Way()
+            model_way.changeset_id = int(xml_way.get("changeset"))
+            model_way.save()
+
+            root.append(etree.Element("way", old_id=tmp_id, new_id=model_way.id, new_version=1))
+
+            cnt = 0
+            for nd in xml_way.findall("nd"):
+                nd_id = dct_tmp_to_id.get(int(nd.get("ref")), int(nd.get("ref")))
+                model_node = Node.objects.get(pk = nd_id)
+                WayNodes.objects.create(way=model_way, node=model_node, idx=cnt)
+                cnt += 1
+
+            for tag in xml_way.findall("tag"):
+                k = tag.get("k")
+                v = tag.get("v")
+                WayTag.objects.create(way=model_way, key=k, val=v)
+
+        kwargs = {'content_type': 'application/xml'}
+        return HttpResponse(etree.tostring(root, pretty_print=True), **kwargs)
+
 
 
 
@@ -160,7 +328,7 @@ class NodeViewSet(APIView):
             return Response("node not found", status=status.status.HTTP_404_NOT_FOUND)
 
         data = serialize_node(model_node)
-        kwargs = {'content_type': 'application/json'}
+        kwargs = {'content_type': 'application/xml'}
         return HttpResponse(data, **kwargs)
 
 
@@ -188,7 +356,7 @@ class NodeViewSetList(APIView):
         model_node.geom = pnt
         model_node.save()
 
-        kwargs = {'content_type': 'application/json'}
+        kwargs = {'content_type': 'application/xml'}
         return HttpResponse(str(model_node.id), **kwargs)
 
 
@@ -222,7 +390,7 @@ class WayViewSet(APIView):
             return Response("way not found", status=status.status.HTTP_404_NOT_FOUND)
 
         data = serialize_way(model_way)
-        kwargs = {'content_type': 'application/json'}
+        kwargs = {'content_type': 'application/xml'}
         return HttpResponse(data, **kwargs)
 
 
@@ -260,7 +428,7 @@ class WayViewSetList(APIView):
             model_way_tag.save()
 
         data = serialize_way(model_way)
-        kwargs = {'content_type': 'application/json'}
+        kwargs = {'content_type': 'application/xml'}
         return HttpResponse(data, **kwargs)
 
 
@@ -278,7 +446,7 @@ class RelationViewSet(APIView):
             return Response("relation not found", status=status.status.HTTP_404_NOT_FOUND)
 
         data = serialize_relation(model_relation)
-        kwargs = {'content_type': 'application/json'}
+        kwargs = {'content_type': 'application/xml'}
         return HttpResponse(data, **kwargs)
 
 
@@ -317,7 +485,7 @@ class RelationViewSetList(APIView):
             RelationTag.objects.create(key = tag.get("k"), val = tag.get("val"))
 
         data = serialize_relation(model_relation)
-        kwargs = {'content_type': 'application/json'}
+        kwargs = {'content_type': 'application/xml'}
         return HttpResponse(data, **kwargs)
 
 
@@ -326,12 +494,13 @@ class MapViewSet(APIView):
 
     def get(self, request):
         #define the map boundaries
-        left, bottom, right, top = [float(x) for x in request.GET.keys()[0].split(",")]
-        poly = Polygon(((left, bottom), (left, top), (right, top), (right, bottom), (left, bottom)))
-        nodes = Node.objects.filter(geom__within=poly)
+        left, bottom, right, top = [float(x) for x in request.GET.get("bbox").split(",")]
+        #poly = Polygon(((left, bottom), (left, top), (right, top), (right, bottom), (left, bottom)))
 
-        data = serialize_map((left, bottom, right, top), nodes)
-        kwargs = {'content_type': 'application/json'}
+        #nodes = Node.objects.filter(geom__within=poly)
+
+        data = '<?xml version="1.0" encoding="UTF-8"?>\n' + serialize_map((left, bottom, right, top))
+        kwargs = {'content_type': 'application/xml'}
         return HttpResponse(data, **kwargs)
 
 

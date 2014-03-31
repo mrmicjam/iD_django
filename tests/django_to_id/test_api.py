@@ -77,7 +77,7 @@ class TestWay(APITestCase):
         self.model_way = Way()
         self.model_way.changeset = model_changeset
         self.model_way.save()
-        for coord in ((-112.0, 33.4), (-111.8, 33.4), (-111.9, 33.2), (-112.0, 33.4)):
+        for coord in ((-111.79138183593747, 33.39475921857797), (-111.79687499999997, 33.40393120023), (-111.79138183593747, 33.40393120023), (-111.79138183593747, 33.39475921857797)):
             pnt = Point(*coord)
             #create the node that make a triangle
             model_node = Node()

@@ -1,13 +1,13 @@
 iD.Connection = function() {
 
     var event = d3.dispatch('authenticating', 'authenticated', 'auth', 'loading', 'load', 'loaded'),
-        url = 'http://www.openstreetmap.org',
+        url = 'http://127.0.0.1:8000',
         connection = {},
         user = {},
         inflight = {},
         loadedTiles = {},
         oauth = osmAuth({
-            url: 'http://www.openstreetmap.org',
+            url: 'http://127.0.0.1:8000',
             oauth_consumer_key: '5A043yRSEugj4DJ5TljuapfnrflWDte8jTOcWLlT',
             oauth_secret: 'aB3jKq1TRsCOUrfOIZ6oQMEDmv2ptV76PA54NGLL',
             loading: authenticating,
@@ -35,6 +35,7 @@ iD.Connection = function() {
 
     connection.loadFromURL = function(url, callback) {
         function done(dom) {
+            //debugger;
             return callback(null, parse(dom));
         }
         return d3.xml(url).get().on('load', done);
@@ -43,7 +44,6 @@ iD.Connection = function() {
     connection.loadEntity = function(id, callback) {
         var type = iD.Entity.id.type(id),
             osmID = iD.Entity.id.toOSM(id);
-
         connection.loadFromURL(
             url + '/api/0.6/' + type + '/' + osmID + (type !== 'node' ? '/full' : ''),
             function(err, entities) {
@@ -161,7 +161,8 @@ iD.Connection = function() {
     }
 
     connection.authenticated = function() {
-        return oauth.authenticated();
+        //return oauth.authenticated();
+        return true;
     };
 
     // Generate Changeset XML. Returns a string.
@@ -225,17 +226,31 @@ iD.Connection = function() {
     };
 
     connection.putChangeset = function(changes, comment, imagery_used, callback) {
+//        d3.xml(url + '/api/0.6/changeset/create').header('Content-Type', 'text/xml')
+//            .send("PUT", JXON.stringify(connection.changesetJXON(connection.changesetTags(comment, imagery_used))),
+//                function(err, changeset_id) {
+//                    if (err) return callback(err);
+//                    d3.xml(url + '/api/0.6/changeset/' + changeset_id + '/upload')
+//                        .header('Content-Type', 'text/xml')
+//                        .post(JXON.stringify(connection.osmChangeJXON(user.id, changeset_id, changes)),
+//                              function(err) {
+//                                  d3.xml(url +'/api/0.6/changeset/' + changeset_id + '/close').send("PUT", "");
+//                              }
+//                        );
+//                });
+//    };
+
         oauth.xhr({
                 method: 'PUT',
                 path: '/api/0.6/changeset/create',
-                options: { header: { 'Content-Type': 'text/xml' } },
+                options: { header: { 'Content-Type': 'application/xml' } },
                 content: JXON.stringify(connection.changesetJXON(connection.changesetTags(comment, imagery_used)))
             }, function(err, changeset_id) {
                 if (err) return callback(err);
                 oauth.xhr({
                     method: 'POST',
                     path: '/api/0.6/changeset/' + changeset_id + '/upload',
-                    options: { header: { 'Content-Type': 'text/xml' } },
+                    options: { header: { 'Content-Type': 'application/xml' } },
                     content: JXON.stringify(connection.osmChangeJXON(user.id, changeset_id, changes))
                 }, function(err) {
                     if (err) return callback(err);
@@ -247,7 +262,8 @@ iD.Connection = function() {
                     });
                 });
             });
-    };
+        };
+
 
     connection.userDetails = function(callback) {
         function done(err, user_details) {
@@ -323,7 +339,6 @@ iD.Connection = function() {
             if (_.isEmpty(inflight)) {
                 event.loading();
             }
-
             inflight[id] = connection.loadFromURL(bboxUrl(tile), function(err, parsed) {
                 loadedTiles[id] = true;
                 delete inflight[id];
