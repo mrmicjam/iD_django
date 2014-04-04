@@ -3,7 +3,7 @@ from django.conf.urls import patterns, include, url
 # Uncomment the next two lines to enable the admin:
 from django.contrib import admin
 admin.autodiscover()
-from django_to_id import views
+from osm_api import views
 
 urlpatterns = patterns('',
     # Examples:
@@ -16,6 +16,17 @@ urlpatterns = patterns('',
 
     url(r'^api/0.6/way/(?P<id>.+)', views.WayViewSet.as_view()),
     url(r'^api/0.6/way/$', views.WayViewSetList.as_view()),
+
+    url(r'^api/0.6/relation/(?P<id>.+)', views.RelationViewSet.as_view()),
+    url(r'^api/0.6/relation/$', views.RelationViewSetList.as_view()),
+
+    url(r'^api/0.6/changeset/create', views.create_changeset),
+    url(r'^api/0.6/changeset/[^/]+/upload', views.upload_change),
+
+    url(r'^oauth/request_token', views.oauth_token),
+    url(r'^api/capabilities', views.capabilities),
+    url(r'^api/0.6/map', views.MapViewSet.as_view()),
+
 
     # Uncomment the next line to enable the admin:
     url(r'^admin/', include(admin.site.urls)),
