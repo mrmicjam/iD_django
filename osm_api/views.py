@@ -268,9 +268,6 @@ class ChangeSetViewSetList(APIView):
         xml_root = bs.find('create')
         dct_tmp_to_id = {}
         for xml_node in xml_root.findall("node"):
-            tmp_id = int(xml_node.get("id"))
-            if tmp_id > 0:
-                continue
 
             lat = float(xml_node.get("lat"))
             lon = float(xml_node.get("lon"))
@@ -279,18 +276,20 @@ class ChangeSetViewSetList(APIView):
             model_node.changeset_id = changeset_id
             pnt = Point(lon, lat)
             model_node.geom = pnt
+            tmp_id = int(xml_node.get("id"))
+            if tmp_id > 0:
+                model_node.parent_id = tmp_id
             model_node.save()
             root.append(etree.Element("node", old_id=tmp_id, new_id=model_node.id, new_version=1))
 
             dct_tmp_to_id[tmp_id] = model_node.id
 
         for xml_way in xml_root.findall("way"):
-            tmp_id = int(xml_way.get("id"))
-            if tmp_id > 0:
-                continue
-
             model_way = Way()
             model_way.changeset_id = int(xml_way.get("changeset"))
+            tmp_id = int(xml_way.get("id"))
+            if tmp_id > 0:
+                model_way.parent_id = tmp_id
             model_way.save()
 
             root.append(etree.Element("way", old_id=tmp_id, new_id=model_way.id, new_version=1))

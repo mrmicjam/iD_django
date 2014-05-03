@@ -1,4 +1,5 @@
 from django.conf.urls import patterns, include, url
+from projects.views import *
 
 # Uncomment the next two lines to enable the admin:
 from django.contrib import admin
@@ -27,6 +28,12 @@ urlpatterns = patterns('',
     url(r'^api/capabilities', views.capabilities),
     url(r'^api/0.6/map', views.MapViewSet.as_view()),
 
+    # Login / logout.
+    (r'^login/$', 'django.contrib.auth.views.login'),
+    (r'^logout/$', logout_page),
+
+    # Main page
+    (r'^$', main_page),
 
     # Uncomment the next line to enable the admin:
     url(r'^admin/', include(admin.site.urls)),

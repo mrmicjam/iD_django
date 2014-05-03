@@ -320,7 +320,11 @@ iD.Connection = function() {
                 projection.invert([x, y]),
                 projection.invert([x + ts, y + ts])];
 
-            return url + '/api/0.6/map?bbox=' + [b[0][0], b[1][1], b[1][0], b[0][1]];
+            return_url =  url + '/api/0.6/map?bbox=' + [b[0][0], b[1][1], b[1][0], b[0][1]];
+            var myRegexp = /&changeset=([^&]+)&/g;
+            var match = myRegexp.exec(location.href);
+            return_url += "&changeset=" + match[1];
+            return return_url;
         }
 
         _.filter(inflight, function(v, i) {

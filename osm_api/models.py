@@ -13,6 +13,8 @@ class Node(models.Model):
     timestamp = models.DateTimeField(auto_now=True)
     changeset = models.ForeignKey(Changeset, related_name="nodes")
 
+    parent_id = models.IntegerField(blank=True, null=True)
+
     objects = models.GeoManager()
 
 
@@ -28,6 +30,7 @@ class Way(models.Model):
     nodes = models.ManyToManyField(Node, through='WayNodes')
     timestamp = models.DateTimeField(auto_now=True)
     geom = models.PolygonField(blank=True, null=True)
+    parent_id = models.IntegerField(blank=True, null=True)
 
 
     def update_geom(self):
