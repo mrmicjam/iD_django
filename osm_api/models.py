@@ -5,6 +5,7 @@ from django.contrib.gis.geos.collections import Point, Polygon
 class Changeset(models.Model):
     created_by = models.ForeignKey(User)
     comment = models.TextField(blank=True, null=True)
+    parent = models.ForeignKey("Changeset")
 
 
 class Node(models.Model):

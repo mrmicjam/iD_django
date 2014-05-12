@@ -115,6 +115,15 @@ MIDDLEWARE_CLASSES = (
     # 'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
 
+AUTHENTICATION_BACKENDS = (
+      'social.backends.open_id.OpenIdAuth',
+      'social.backends.google.GoogleOpenId',
+      'social.backends.google.GoogleOAuth2',
+      'social.backends.google.GoogleOAuth',
+      'social.backends.twitter.TwitterOAuth',
+      'django.contrib.auth.backends.ModelBackend',
+  )
+
 ROOT_URLCONF = 'iD_django.urls'
 
 # Python dotted path to the WSGI application used by Django's runserver.
@@ -147,9 +156,15 @@ INSTALLED_APPS = (
     # 'django.contrib.admindocs',
     'osm_api',
     'iD',
-    'projects'
+    'projects',
+    'social.apps.django_app.default',
 )
 
+TEMPLATE_CONTEXT_PROCESSORS = (
+    'social.apps.django_app.context_processors.backends',
+    'social.apps.django_app.context_processors.login_redirect',
+    'django.contrib.auth.context_processors.auth'
+)
 # A sample logging configuration. The only tangible logging
 # performed by this configuration is to send an email to
 # the site admins on every HTTP 500 error when DEBUG=False.
@@ -184,3 +199,5 @@ LOGGING = {
 POSTGIS_VERSION = (1, 5, 3)
 POSTGIS_SQL_PATH = '/usr/share/postgresql/9.1/contrib/postgis-1.5/'
 #TEST_RUNNER='django.contrib.gis.tests.run_tests'
+
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'

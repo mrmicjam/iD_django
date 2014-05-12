@@ -1,3 +1,10 @@
+function _apnd_chgst_(url){
+    var myRegexp = /&changeset=([^&]+)&/g;
+    var match = myRegexp.exec(location.href);
+    url += "&changeset=" + match[1];
+    return url;
+}
+
 iD.Connection = function() {
 
     var event = d3.dispatch('authenticating', 'authenticated', 'auth', 'loading', 'load', 'loaded'),
@@ -242,14 +249,14 @@ iD.Connection = function() {
 
         oauth.xhr({
                 method: 'PUT',
-                path: '/api/0.6/changeset/create',
+                path: _apnd_chgst_('/api/0.6/changeset/create?'),
                 options: { header: { 'Content-Type': 'application/xml' } },
                 content: JXON.stringify(connection.changesetJXON(connection.changesetTags(comment, imagery_used)))
             }, function(err, changeset_id) {
                 if (err) return callback(err);
                 oauth.xhr({
                     method: 'POST',
-                    path: '/api/0.6/changeset/' + changeset_id + '/upload',
+                    path: _apnd_chgst_('/api/0.6/changeset/' + changeset_id + '/upload?'),
                     options: { header: { 'Content-Type': 'application/xml' } },
                     content: JXON.stringify(connection.osmChangeJXON(user.id, changeset_id, changes))
                 }, function(err) {

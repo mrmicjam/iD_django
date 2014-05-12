@@ -44,21 +44,22 @@ def capabilities(request):
     kwargs = {'content_type': 'application/xml'}
     return HttpResponse(xml_data, **kwargs)
 
+
 @csrf_exempt
 def oauth_token(request):
     kwargs = {'content_type': 'text/html'}
     return HttpResponse("oauth_token=GhrEMArAJuBLrIc0nE807MpMbRGvpVUNjdf5IyBs&oauth_token_secret=SdZyXGWlSIQLskeHh8NAuMDMhSKquVnNMOYSNtC2", **kwargs)
 
+
 @csrf_exempt
 def create_changeset(request):
+    parent_changeset = request.GET.get("changeset", None)
     model_change = Changeset()
-    model_change.created_by = User.objects.all()[0];
+    model_change.created_by = User.objects.all()[0]
+    model_change.parent_id = int(parent_changeset)
     model_change.save()
     kwargs = {'content_type': 'text/html'}
     return HttpResponse(str(model_change.id), **kwargs)
-
-
-
 
 
 
@@ -169,40 +170,96 @@ def upload_change(request):
     """
     root = etree.Element('diffResult', version="0.6", generator="OpenStreetMap server", copyright="OpenStreetMap and contributors", attribution="http://www.openstreetmap.org/copyright", license="http://opendatacommons.org/licenses/odbl/1-0/")
     bs = BeautifulSoup(request.body)
-    xml_root = bs.find('create')
-    dct_tmp_to_id = {}
-    for xml_node in xml_root.findAll("node"):
+
+    dct_node_old_to_new_id = {}
+    model_changeset = None
+    parent_changeset_id = request.GET.get("changeset", None)
+    if parent_changeset_id:
+        model_parent_changeset = Changeset.objects.get(id=parent_changeset_id)
+    li_deleted_nodes = []
+    li_deleted_ways = []
+
+    # create all new nodes
+    xml_create_root = bs.find('create')
+    for xml_node in xml_create_root.findAll("node"):
         tmp_id = int(xml_node.get("id"))
         if tmp_id > 0:
-            continue
+            continue  # shouldn't happen
 
         lat = float(xml_node.get("lat"))
         lon = float(xml_node.get("lon"))
-        changeset_id = int(xml_node.get("changeset"))
+
+        if not model_changeset:
+            changeset_id = int(xml_node.get("changeset"))
+            model_changeset = Changeset.objects.get(id=changeset_id)
+
         model_node = Node()
-        model_node.changeset_id = changeset_id
+        model_node.changeset = model_changeset
         pnt = Point(lon, lat)
         model_node.geom = pnt
         model_node.save()
+
+        dct_node_old_to_new_id[tmp_id] = model_node.id
         root.append(etree.Element("node", old_id=str(tmp_id), new_id=str(model_node.id), new_version=str(1)))
 
-        dct_tmp_to_id[tmp_id] = model_node.id
+        # TODO: Create tags
 
-    for xml_way in xml_root.findAll("way"):
+    # modify all the existing nodes
+    xml_modify_root = bs.find('modify')
+    for xml_node in xml_modify_root.findAll("node"):
+        old_id = int(xml_node.get("id"))
+        lat = float(xml_node.get("lat"))
+        lon = float(xml_node.get("lon"))
+        model_node = Node.objects.get(id=old_id)
+        new_node = Node()
+        pnt = Point(lon, lat)
+        new_node.geom = pnt
+        new_node.changeset = model_changeset
+        new_node.save()
+        dct_node_old_to_new_id[model_node.id] = new_node.id
+        root.append(etree.Element("node", old_id=str(model_node.id), new_id=str(new_node.id), new_version=str(1)))
+
+        # TODO: Migrate tags
+
+    # get all the nodes and ways to delete
+    xml_delete_root = bs.find('delete')
+    for xml_node in xml_delete_root.findAll("node"):
+        delete_id = int(xml_node.get("id"))
+        li_deleted_nodes.append(delete_id)
+
+    for xml_way in xml_delete_root.findAll("way"):
+        delete_id = int(xml_way.get("id"))
+        li_deleted_ways.append(delete_id)
+
+    # recreate all nodes in the parent changeset that are not in delete or already modified
+    if model_parent_changeset:
+        for model_node in model_parent_changeset.nodes.all():
+            if model_node.id not in li_deleted_nodes and model_node.id not in dct_node_old_to_new_id:
+                new_node = Node()
+                new_node.geom = model_node.geom
+                new_node.changeset = model_changeset
+                new_node.save()
+                dct_node_old_to_new_id[model_node.id] = new_node.id
+                root.append(etree.Element("node", old_id=str(model_node.id), new_id=str(new_node.id), new_version=str(1)))
+
+                # TODO: Migrate tags
+
+    # create all new ways
+    for xml_way in xml_create_root.findAll("way"):
         tmp_id = int(xml_way.get("id"))
         if tmp_id > 0:
-            continue
+            continue  # should never happen on create
 
         model_way = Way()
-        model_way.changeset_id = int(xml_way.get("changeset"))
+        model_way.changeset = model_changeset
         model_way.save()
 
         root.append(etree.Element("way", old_id=str(tmp_id), new_id=str(model_way.id), new_version=str(1)))
 
         cnt = 0
         for nd in xml_way.findAll("nd"):
-            nd_id = dct_tmp_to_id.get(int(nd.get("ref")), int(nd.get("ref")))
-            model_node = Node.objects.get(pk = nd_id)
+            nd_id = dct_node_old_to_new_id.get(int(nd.get("ref")), int(nd.get("ref")))
+            model_node = Node.objects.get(pk=nd_id)
             WayNodes.objects.create(way=model_way, node=model_node, idx=cnt)
             cnt += 1
 
@@ -213,6 +270,25 @@ def upload_change(request):
             v = tag.get("v")
             WayTag.objects.create(way=model_way, key=k, val=v)
 
+
+    # recreate all ways in the parent changeset if not listed above and not in delete
+    if model_parent_changeset:
+        for model_way in model_parent_changeset.ways.all():
+            if not model_way.id in li_deleted_ways:
+                new_way = Way()
+                new_way.changeset = model_changeset
+                new_way.save()
+                for waynode in model_way.waynodes.all():
+                    new_waynode = WayNodes()
+                    new_waynode.way = new_way
+                    new_waynode.node_id = dct_node_old_to_new_id.get(waynode.node.id, waynode.node.id)
+                    new_waynode.idx = waynode.idx
+                    new_waynode.save()
+                for waytag in model_way.tags.all():
+                    WayTag.objects.create(way=new_way, key=waytag.key, val=waytag.val)
+                new_way.update_geom()
+
+                # TODO: Migrate tags
 
     kwargs = {'content_type': 'application/xml'}
     return HttpResponse(etree.tostring(root, pretty_print=True), **kwargs)
@@ -262,6 +338,8 @@ class ChangeSetViewSetList(APIView):
           <way old_id="-1" new_id="270526825" new_version="1"/>
         </diffResult>
         """
+        model_changeset = None
+
         root = etree.Element('diffResult', version="0.6", generator="OpenStreetMap server", copyright="OpenStreetMap and contributors", attribution="http://www.openstreetmap.org/copyright", license="http://opendatacommons.org/licenses/odbl/1-0/")
         print request.DATA
         bs = BeautifulSoup(request.DATA)
@@ -271,9 +349,12 @@ class ChangeSetViewSetList(APIView):
 
             lat = float(xml_node.get("lat"))
             lon = float(xml_node.get("lon"))
-            changeset_id = int(xml_node.get("changeset"))
+            if not model_changeset:
+                changeset_id = int(xml_node.get("changeset"))
+                model_changeset = Changeset.objects.get(id=changeset_id)
+
             model_node = Node()
-            model_node.changeset_id = changeset_id
+            model_node.changeset = model_changeset
             pnt = Point(lon, lat)
             model_node.geom = pnt
             tmp_id = int(xml_node.get("id"))
@@ -286,7 +367,7 @@ class ChangeSetViewSetList(APIView):
 
         for xml_way in xml_root.findall("way"):
             model_way = Way()
-            model_way.changeset_id = int(xml_way.get("changeset"))
+            model_way.changeset = model_changeset
             tmp_id = int(xml_way.get("id"))
             if tmp_id > 0:
                 model_way.parent_id = tmp_id
@@ -305,6 +386,7 @@ class ChangeSetViewSetList(APIView):
                 k = tag.get("k")
                 v = tag.get("v")
                 WayTag.objects.create(way=model_way, key=k, val=v)
+
 
         kwargs = {'content_type': 'application/xml'}
         return HttpResponse(etree.tostring(root, pretty_print=True), **kwargs)
@@ -497,8 +579,8 @@ class MapViewSet(APIView):
         #poly = Polygon(((left, bottom), (left, top), (right, top), (right, bottom), (left, bottom)))
 
         #nodes = Node.objects.filter(geom__within=poly)
-
-        data = '<?xml version="1.0" encoding="UTF-8"?>\n' + serialize_map((left, bottom, right, top))
+        changeset = request.GET.get("changeset", None)
+        data = '<?xml version="1.0" encoding="UTF-8"?>\n' + serialize_map((left, bottom, right, top), changeset=changeset)
         kwargs = {'content_type': 'application/xml'}
         return HttpResponse(data, **kwargs)
 

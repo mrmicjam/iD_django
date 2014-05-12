@@ -1,7 +1,7 @@
 __author__ = 'micah'
 
 from lxml import etree
-from models import RelationToWay, RelationToNode, WayNodes, Way, Relation, Node
+from models import RelationToWay, RelationToNode, WayNodes, Way, Relation, Node, Changeset
 from django.contrib.gis.geos import Polygon
 
 """
@@ -171,7 +171,7 @@ def serialize_relation(model_relation, envelope=True, filter_nodes_ids=None, fil
         return root
 
 
-def serialize_map(bounds):
+def serialize_map(bounds, changeset=None):
     # get the ways
     li_children = []
     # filter_node_ids = [nd.id for nd in nodes]
@@ -189,7 +189,22 @@ def serialize_map(bounds):
     #     xml_way = serialize_way(model_way, envelope=False, filter_nodes_ids=None, return_format="xml")
     #     li_children.append(xml_way)
     li_way_ids = []
-    for model_way in Way.objects.filter(geom__bboverlaps=poly.wkt):
+
+    model_changeset = None
+    if changeset:
+        try:
+            model_changeset = Changeset.objects.get(id=changeset)
+        except:
+            pass
+
+    qry_way = Way.objects.all()
+    qry_node = Node.objects.all()
+
+    if model_changeset:
+        qry_way = qry_way.filter(changeset=model_changeset)
+        qry_node = qry_node.filter(changeset=model_changeset)
+
+    for model_way in qry_way.filter(geom__bboverlaps=poly.wkt):
         xml_way = serialize_way(model_way, envelope=False, filter_nodes_ids=None, return_format="xml")
         li_children.append(xml_way)
         li_way_ids.append(model_way.id)
@@ -217,7 +232,7 @@ def serialize_map(bounds):
             root.append(xml_node)
 
     #get any additional nodes that aren't used in a way or relations
-    nodes = Node.objects.filter(geom__within=poly.wkt).exclude(id__in=li_node_ids)
+    nodes = qry_node.filter(geom__within=poly.wkt).exclude(id__in=li_node_ids)
     for node in nodes:
         xml_node = serialize_node(node, envelope=False, return_format="xml")
         root.append(xml_node)
