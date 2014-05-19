@@ -1,28 +1,14 @@
 {% extends 'base.html' %}
 {% block content %}
 
-    <a href="/login/">login</a>
-    <div id="project_features">
-        <div id="project_info">
+    <h2>Please login</h2>
+    <ul>
+    <li>
+        <a href="/login/google/">With google</a>
+    </li>
+    <li>
+        <a href="/login/google/">With twitter</a>
+    </li>
+    </ul>
 
-        </div>
-        <div id="buy_in">
-
-        </div>
-        <div id="invite_others">
-
-        </div>
-        <input id="test" type="button" name="test" value="Test"/>
-
-        <script>
-            $('input#test').click(function(evt){
-                $("iframe#iframe_map").attr("src", "/static/index.html#background=Bing&changeset=1&map=20.00/-111.02271/34.90085")
-            });
-
-        </script>
-    </div>
-
-    <div id="map">
-        <iframe id="iframe_map" src="/static/index.html#background=Bing&changeset=1&map=20.00/{{ lng }}/{{ lat }}"></iframe>
-    </div>
 {% endblock %}

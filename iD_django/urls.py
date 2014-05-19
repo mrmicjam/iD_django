@@ -22,7 +22,7 @@ urlpatterns = patterns('',
     url(r'^api/0.6/relation/$', views.RelationViewSetList.as_view()),
 
     url(r'^api/0.6/changeset/create', views.create_changeset),
-    url(r'^api/0.6/changeset/[^/]+/upload', views.upload_change),
+    url(r'^api/0.6/changeset/(?P<changeset_id>[^/]+)/upload', views.upload_change),
 
     url(r'^oauth/request_token', views.oauth_token),
     url(r'^api/capabilities', views.capabilities),
@@ -33,8 +33,11 @@ urlpatterns = patterns('',
     (r'^logout/$', logout_page),
 
     # Main page
-    (r'^$', create_project),
-    (r'^project/.*$', project_page),
+    (r'^$', index),
+    (r'^project_list/$', project_list),
+    (r'^create_project/$', create_project),
+    (r'^project/(?P<project_id>.*)/$', project_page),
+
 
     # Uncomment the next line to enable the admin:
     url(r'^admin/', include(admin.site.urls)),

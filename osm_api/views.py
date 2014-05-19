@@ -54,13 +54,20 @@ def oauth_token(request):
 @csrf_exempt
 def create_changeset(request):
     parent_changeset = request.GET.get("changeset", None)
+    project_id = None
+    if not parent_changeset:
+        project_id = request.GET.get("project", None)
     model_change = Changeset()
     model_change.created_by = User.objects.all()[0]
-    model_change.parent_id = int(parent_changeset)
+    if parent_changeset:
+        model_parent = Changeset.objects.get(id=int(parent_changeset))
+        model_change.parent = model_parent
+        model_change.project = model_parent.project
+    else:
+        model_change.project_id = int(project_id)
     model_change.save()
     kwargs = {'content_type': 'text/html'}
     return HttpResponse(str(model_change.id), **kwargs)
-
 
 
 # http://taginfo.openstreetmap.org/api/4/key/values?key=building&page=1&rp=20&sortname=count_all&sortorder=desc
@@ -134,7 +141,7 @@ class MapViewSet(APIView):
 
 
 @csrf_exempt
-def upload_change(request):
+def upload_change(request, changeset_id):
     """
     ###POST
     <osmCh<?xml version="1.0"?>
@@ -169,13 +176,11 @@ def upload_change(request):
     </diffResult>
     """
     root = etree.Element('diffResult', version="0.6", generator="OpenStreetMap server", copyright="OpenStreetMap and contributors", attribution="http://www.openstreetmap.org/copyright", license="http://opendatacommons.org/licenses/odbl/1-0/")
-    bs = BeautifulSoup(request.body)
+    bs = BeautifulSoup(request.body, selfClosingTags=['create', 'modify', 'delete'])
 
     dct_node_old_to_new_id = {}
-    model_changeset = None
-    parent_changeset_id = request.GET.get("changeset", None)
-    if parent_changeset_id:
-        model_parent_changeset = Changeset.objects.get(id=parent_changeset_id)
+    model_changeset = Changeset.objects.get(id=int(changeset_id))
+    model_parent_changeset = model_changeset.parent  # could be None
     li_deleted_nodes = []
     li_deleted_ways = []
 
@@ -188,10 +193,6 @@ def upload_change(request):
 
         lat = float(xml_node.get("lat"))
         lon = float(xml_node.get("lon"))
-
-        if not model_changeset:
-            changeset_id = int(xml_node.get("changeset"))
-            model_changeset = Changeset.objects.get(id=changeset_id)
 
         model_node = Node()
         model_node.changeset = model_changeset

@@ -1,12 +1,13 @@
 from django.contrib.gis.db import models
 from django.contrib.auth.models import User
 from django.contrib.gis.geos.collections import Point, Polygon
+from projects.models import Project
 
 class Changeset(models.Model):
     created_by = models.ForeignKey(User)
     comment = models.TextField(blank=True, null=True)
-    parent = models.ForeignKey("Changeset")
-
+    parent = models.ForeignKey("Changeset", blank=True, null=True)
+    project = models.ForeignKey(Project)
 
 class Node(models.Model):
     """Represents a single point"""

@@ -1,7 +1,48 @@
-function _apnd_chgst_(url){
-    var myRegexp = /&changeset=([^&]+)&/g;
+function _get_project(){
+    var myRegexp = /&project=([^&]+)/g;
     var match = myRegexp.exec(location.href);
-    url += "&changeset=" + match[1];
+    if (match !== null){
+        return match[1];
+    } else {
+        return null;
+    }
+}
+
+function _get_project_url_param(){
+    var proj = _get_project();
+    if (proj !== null){
+        return "&project=" + proj;
+    } else {
+        return "";
+    }
+}
+
+function _apnd_proj(url){
+    url += _get_project_url_param();
+    return url;
+}
+
+function _get_chgst(){
+    var myRegexp = /&changeset=([^&]+)/g;
+    var match = myRegexp.exec(location.href);
+    if (match !== null){
+        return match[1];
+    } else {
+        return null;
+    }
+}
+
+function _get_chgst_url_param(){
+    var chgst = _get_chgst();
+    if (chgst !== null){
+        return "&changeset=" + chgst;
+    } else {
+        return "";
+    }
+}
+
+function _apnd_chgst_(url){
+    url += _get_chgst_url_param();
     return url;
 }
 
@@ -249,7 +290,7 @@ iD.Connection = function() {
 
         oauth.xhr({
                 method: 'PUT',
-                path: _apnd_chgst_('/api/0.6/changeset/create?'),
+                path: _apnd_proj(_apnd_chgst_('/api/0.6/changeset/create?')),
                 options: { header: { 'Content-Type': 'application/xml' } },
                 content: JXON.stringify(connection.changesetJXON(connection.changesetTags(comment, imagery_used)))
             }, function(err, changeset_id) {
@@ -328,9 +369,8 @@ iD.Connection = function() {
                 projection.invert([x + ts, y + ts])];
 
             return_url =  url + '/api/0.6/map?bbox=' + [b[0][0], b[1][1], b[1][0], b[0][1]];
-            var myRegexp = /&changeset=([^&]+)&/g;
-            var match = myRegexp.exec(location.href);
-            return_url += "&changeset=" + match[1];
+            return_url = _apnd_chgst_(return_url);
+
             return return_url;
         }
 
