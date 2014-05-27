@@ -1,3 +1,5 @@
+sudo su - postgres -c "psql -c \"drop database id_django\""
+sudo su - postgres -c "psql -c \"drop user id_django\""
 sudo su - postgres -c "createdb id_django"
 sudo su - postgres -c "createlang -d id_django plpgsql"
 sudo su - postgres -c "psql -d id_django -f /usr/share/postgresql/*/contrib/*/postgis.sql"

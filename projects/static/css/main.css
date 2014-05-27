@@ -1,0 +1,68 @@
+html{
+    width: 100%;
+    height: 100%;
+}
+
+body{
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+div#menu{
+    width: 100%;
+    text-align: right;
+}
+div#menu ul{
+    margin: 0;
+    padding: 0;
+}
+
+div{
+    margin: 0; padding: 0;
+}
+
+div#page{
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+div#project_features{
+    height: 200px;
+    margin: 0;
+    background-color: #58a9ed;
+    display: block;
+    width: 100%;
+    max-height: 200px;
+}
+
+div#project_info{
+    display: inline-block;
+    width: 50%;
+    height: 200px;
+    vertical-align: top;
+}
+
+div#project_comments{
+    display: inline-block;
+    width: 50%;
+    overflow-y: scroll;
+    max-height: 200px;
+}
+
+div#map{
+    left: 0;
+    right: 0;
+    background-color: #b0e298;
+    top: 0;
+    bottom: 0;
+    position: relative;
+}
+
+
+iframe{
+    width: 100%;
+    height: 100%;
+}

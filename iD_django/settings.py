@@ -1,7 +1,9 @@
 # Django settings for iD_django project.
+import sys
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
+
 
 ADMINS = (
     # ('Your Name', 'your_email@example.com'),
@@ -9,16 +11,29 @@ ADMINS = (
 
 MANAGERS = ADMINS
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.contrib.gis.db.backends.spatialite', # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
-        'NAME': "geodjango.db",                      # Or path to database file if using sqlite3.
-        'USER': 'id_django',                      # Not used with sqlite3.
-        'PASSWORD': 'id_django',                  # Not used with sqlite3.
-        'HOST': 'localhost',                      # Set to empty string for localhost. Not used with sqlite3.
-        'PORT': '',                      # Set to empty string for default. Not used with sqlite3.
+if "test" in sys.argv:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.contrib.gis.db.backends.spatialite', # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
+            'NAME': "geodjango.db",                      # Or path to database file if using sqlite3.
+            'USER': 'id_django',                      # Not used with sqlite3.
+            'PASSWORD': 'id_django',                  # Not used with sqlite3.
+            'HOST': 'localhost',                      # Set to empty string for localhost. Not used with sqlite3.
+            'PORT': '',                      # Set to empty string for default. Not used with sqlite3.
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.contrib.gis.db.backends.postgis', # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
+            'NAME': "id_django",                      # Or path to database file if using sqlite3.
+            'USER': 'id_django',                      # Not used with sqlite3.
+            'PASSWORD': 'id_django',                  # Not used with sqlite3.
+            'HOST': 'localhost',                      # Set to empty string for localhost. Not used with sqlite3.
+            'PORT': '',                      # Set to empty string for default. Not used with sqlite3.
+        }
+    }
+
 
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
@@ -100,6 +115,15 @@ MIDDLEWARE_CLASSES = (
     # 'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
 
+AUTHENTICATION_BACKENDS = (
+      'social.backends.open_id.OpenIdAuth',
+      'social.backends.google.GoogleOpenId',
+      'social.backends.google.GoogleOAuth2',
+      'social.backends.google.GoogleOAuth',
+      'social.backends.twitter.TwitterOAuth',
+      'django.contrib.auth.backends.ModelBackend',
+  )
+
 ROOT_URLCONF = 'iD_django.urls'
 
 # Python dotted path to the WSGI application used by Django's runserver.
@@ -107,6 +131,9 @@ WSGI_APPLICATION = 'iD_django.wsgi.application'
 
 import os
 TEMPLATE_DIRS = (os.path.join(os.path.dirname(__file__), '..', 'templates').replace('\\','/'),)
+
+# URL of the login page.
+LOGIN_URL = '/'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -127,10 +154,18 @@ INSTALLED_APPS = (
     'django.contrib.gis',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
-    'django_to_id',
-
+    'osm_api',
+    'iD',
+    'projects',
+    'social.apps.django_app.default',
 )
 
+TEMPLATE_CONTEXT_PROCESSORS = (
+    'social.apps.django_app.context_processors.backends',
+    'social.apps.django_app.context_processors.login_redirect',
+    'django.contrib.auth.context_processors.auth',
+    'django.core.context_processors.request'
+)
 # A sample logging configuration. The only tangible logging
 # performed by this configuration is to send an email to
 # the site admins on every HTTP 500 error when DEBUG=False.
@@ -165,3 +200,15 @@ LOGGING = {
 POSTGIS_VERSION = (1, 5, 3)
 POSTGIS_SQL_PATH = '/usr/share/postgresql/9.1/contrib/postgis-1.5/'
 #TEST_RUNNER='django.contrib.gis.tests.run_tests'
+
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
+
+
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_HOST_USER = "dataconcise@gmail.com"
+EMAIL_HOST_PASSWORD = "Sven*8398"
+EMAIL_USE_TLS = True
+EMAIL_PORT = 587
+SERVER_EMAIL="dataconcise@gmail.com"
+
+SITE_DOMAIN = "http://127.0.0.1:8000"
