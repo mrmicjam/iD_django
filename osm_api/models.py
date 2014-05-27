@@ -7,7 +7,9 @@ class Changeset(models.Model):
     created_by = models.ForeignKey(User)
     comment = models.TextField(blank=True, null=True)
     parent = models.ForeignKey("Changeset", blank=True, null=True)
-    project = models.ForeignKey(Project)
+    project = models.ForeignKey(Project, related_name="changesets")
+    timestamp = models.DateTimeField(auto_now=True)
+    is_main = models.NullBooleanField()
 
 class Node(models.Model):
     """Represents a single point"""

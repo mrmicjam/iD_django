@@ -133,7 +133,7 @@ import os
 TEMPLATE_DIRS = (os.path.join(os.path.dirname(__file__), '..', 'templates').replace('\\','/'),)
 
 # URL of the login page.
-LOGIN_URL = '/login/'
+LOGIN_URL = '/'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -163,7 +163,8 @@ INSTALLED_APPS = (
 TEMPLATE_CONTEXT_PROCESSORS = (
     'social.apps.django_app.context_processors.backends',
     'social.apps.django_app.context_processors.login_redirect',
-    'django.contrib.auth.context_processors.auth'
+    'django.contrib.auth.context_processors.auth',
+    'django.core.context_processors.request'
 )
 # A sample logging configuration. The only tangible logging
 # performed by this configuration is to send an email to
@@ -201,3 +202,13 @@ POSTGIS_SQL_PATH = '/usr/share/postgresql/9.1/contrib/postgis-1.5/'
 #TEST_RUNNER='django.contrib.gis.tests.run_tests'
 
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
+
+
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_HOST_USER = "dataconcise@gmail.com"
+EMAIL_HOST_PASSWORD = "Sven*8398"
+EMAIL_USE_TLS = True
+EMAIL_PORT = 587
+SERVER_EMAIL="dataconcise@gmail.com"
+
+SITE_DOMAIN = "http://127.0.0.1:8000"

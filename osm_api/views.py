@@ -11,6 +11,8 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.gis.geos import Polygon
 from django.views.decorators.csrf import csrf_exempt
 from lxml import etree
+import xml.etree.ElementTree as ET
+from django.contrib.auth.decorators import login_required
 
 # TODO: capabilites
 # http://www.openstreetmap.org/api/capabilities
@@ -52,20 +54,39 @@ def oauth_token(request):
 
 
 @csrf_exempt
+@login_required
 def create_changeset(request):
+    """
+    '<osm><changeset version="0.3" generator="iD"><tag k="imagery_used" v="Bing"/><tag k="created_by" v="iD 1.0.0"/><tag k="comment" v="my changes!"/></changeset></osm>'
+    """
+    comment = ""
+    bs = ET.fromstring(request.body)
+    change_xml = bs.find("changeset")
+
+    for tag in change_xml.findall("tag"):
+        k = tag.get("k")
+        v = tag.get("v")
+        if k == "comment":
+            comment = v
+
     parent_changeset = request.GET.get("changeset", None)
-    project_id = None
     if not parent_changeset:
         project_id = request.GET.get("project", None)
+        model_project = Project.objects.get(id=int(project_id))
     model_change = Changeset()
-    model_change.created_by = User.objects.all()[0]
+    model_change.created_by = request.user
+    model_change.comment = comment
     if parent_changeset:
         model_parent = Changeset.objects.get(id=int(parent_changeset))
         model_change.parent = model_parent
         model_change.project = model_parent.project
+        model_change.save()
     else:
-        model_change.project_id = int(project_id)
-    model_change.save()
+        model_change.project = model_project
+        model_change.save()
+        model_project.set_main_changeset(model_change)
+
+
     kwargs = {'content_type': 'text/html'}
     return HttpResponse(str(model_change.id), **kwargs)
 
@@ -141,6 +162,13 @@ class MapViewSet(APIView):
 
 
 @csrf_exempt
+def close_change(request, changeset_id):
+    kwargs = {'content_type': 'application/xml'}
+    return HttpResponse("", **kwargs)
+
+
+
+@csrf_exempt
 def upload_change(request, changeset_id):
     """
     ###POST
@@ -176,9 +204,11 @@ def upload_change(request, changeset_id):
     </diffResult>
     """
     root = etree.Element('diffResult', version="0.6", generator="OpenStreetMap server", copyright="OpenStreetMap and contributors", attribution="http://www.openstreetmap.org/copyright", license="http://opendatacommons.org/licenses/odbl/1-0/")
-    bs = BeautifulSoup(request.body, selfClosingTags=['create', 'modify', 'delete'])
+    #bs = BeautifulSoup(request.body, selfClosingTags=['create', 'modify', 'delete'])
+    bs = ET.fromstring(request.body)
 
     dct_node_old_to_new_id = {}
+    dct_way_old_to_new_id = {}
     model_changeset = Changeset.objects.get(id=int(changeset_id))
     model_parent_changeset = model_changeset.parent  # could be None
     li_deleted_nodes = []
@@ -186,7 +216,7 @@ def upload_change(request, changeset_id):
 
     # create all new nodes
     xml_create_root = bs.find('create')
-    for xml_node in xml_create_root.findAll("node"):
+    for xml_node in xml_create_root.findall("node"):
         tmp_id = int(xml_node.get("id"))
         if tmp_id > 0:
             continue  # shouldn't happen
@@ -207,7 +237,7 @@ def upload_change(request, changeset_id):
 
     # modify all the existing nodes
     xml_modify_root = bs.find('modify')
-    for xml_node in xml_modify_root.findAll("node"):
+    for xml_node in xml_modify_root.findall("node"):
         old_id = int(xml_node.get("id"))
         lat = float(xml_node.get("lat"))
         lon = float(xml_node.get("lon"))
@@ -224,11 +254,11 @@ def upload_change(request, changeset_id):
 
     # get all the nodes and ways to delete
     xml_delete_root = bs.find('delete')
-    for xml_node in xml_delete_root.findAll("node"):
+    for xml_node in xml_delete_root.findall("node"):
         delete_id = int(xml_node.get("id"))
         li_deleted_nodes.append(delete_id)
 
-    for xml_way in xml_delete_root.findAll("way"):
+    for xml_way in xml_delete_root.findall("way"):
         delete_id = int(xml_way.get("id"))
         li_deleted_ways.append(delete_id)
 
@@ -245,20 +275,19 @@ def upload_change(request, changeset_id):
 
                 # TODO: Migrate tags
 
-    # create all new ways
-    for xml_way in xml_create_root.findAll("way"):
+    # create new ways for all in create and modify
+    for xml_way in xml_create_root.findall("way") + xml_modify_root.findall("way"):
         tmp_id = int(xml_way.get("id"))
-        if tmp_id > 0:
-            continue  # should never happen on create
 
         model_way = Way()
         model_way.changeset = model_changeset
         model_way.save()
 
-        root.append(etree.Element("way", old_id=str(tmp_id), new_id=str(model_way.id), new_version=str(1)))
+        root.append(etree.Element("way", old_id=str(tmp_id), new_id=str(model_way.id), new_version="1"))
+        dct_way_old_to_new_id[tmp_id] = model_way.id
 
         cnt = 0
-        for nd in xml_way.findAll("nd"):
+        for nd in xml_way.findall("nd"):
             nd_id = dct_node_old_to_new_id.get(int(nd.get("ref")), int(nd.get("ref")))
             model_node = Node.objects.get(pk=nd_id)
             WayNodes.objects.create(way=model_way, node=model_node, idx=cnt)
@@ -266,7 +295,7 @@ def upload_change(request, changeset_id):
 
         model_way.update_geom()
 
-        for tag in xml_way.findAll("tag"):
+        for tag in xml_way.findall("tag"):
             k = tag.get("k")
             v = tag.get("v")
             WayTag.objects.create(way=model_way, key=k, val=v)
@@ -275,7 +304,7 @@ def upload_change(request, changeset_id):
     # recreate all ways in the parent changeset if not listed above and not in delete
     if model_parent_changeset:
         for model_way in model_parent_changeset.ways.all():
-            if not model_way.id in li_deleted_ways:
+            if not model_way.id in li_deleted_ways + dct_way_old_to_new_id.keys():
                 new_way = Way()
                 new_way.changeset = model_changeset
                 new_way.save()
@@ -293,106 +322,6 @@ def upload_change(request, changeset_id):
 
     kwargs = {'content_type': 'application/xml'}
     return HttpResponse(etree.tostring(root, pretty_print=True), **kwargs)
-
-#TODO Changeset view
-#connection.js:227
-# PUT: '/api/0.6/changeset/create'
-# POST: '/api/0.6/changeset/' + changeset_id + '/upload',
-# PUT: '/api/0.6/changeset/' + changeset_id + '/close'
-class ChangeSetViewSetList(APIView):
-    """Retrieve a list of changesets or create a new one"""
-    #authentication_classes = (SessionAuthentication, BasicAuthentication)
-    #permission_classes = (IsAuthenticated,)
-
-    @csrf_exempt
-    def post(self, request, format=None):
-        """
-        ###POST
-        <osmCh<?xml version="1.0"?>
-        <osmChange version="0.3" generator="iD">
-            <create>
-                <node id="-1" lon="-112.00164795458814" lat="33.3997713112705" version="0" changeset="9"/>
-                <node id="-4" lon="-111.99979153235213" lat="33.39915424545651" version="0" changeset="9"/>
-                <node id="-7" lon="-112.00120103812391" lat="33.39780529562679" version="0" changeset="9"/>
-                <node id="-10" lon="-112.00353875501368" lat="33.39856587629712" version="0" changeset="9"/>
-                <way id="-1" version="0" changeset="9">
-                    <nd ref="-1"/>
-                    <nd ref="-4"/>
-                    <nd ref="-7"/>
-                    <nd ref="-10"/>
-                    <nd ref="-1"/>
-                    <tag k="building" v="yes"/>
-                    <tag k="name" v="asdf"/>
-                </way>
-            </create>
-            <modify/>
-            <delete if-unused="true"/>
-        </osmChange>
-
-        ###RESPONSE
-        <?xml version="1.0" encoding="UTF-8"?>
-        <diffResult version="0.6" generator="OpenStreetMap server" copyright="OpenStreetMap and contributors" attribution="http://www.openstreetmap.org/copyright" license="http://opendatacommons.org/licenses/odbl/1-0/">
-          <node old_id="-1" new_id="2755562774" new_version="1"/>
-          <node old_id="-4" new_id="2755562775" new_version="1"/>
-          <node old_id="-7" new_id="2755562776" new_version="1"/>
-          <node old_id="-10" new_id="2755562777" new_version="1"/>
-          <way old_id="-1" new_id="270526825" new_version="1"/>
-        </diffResult>
-        """
-        model_changeset = None
-
-        root = etree.Element('diffResult', version="0.6", generator="OpenStreetMap server", copyright="OpenStreetMap and contributors", attribution="http://www.openstreetmap.org/copyright", license="http://opendatacommons.org/licenses/odbl/1-0/")
-        print request.DATA
-        bs = BeautifulSoup(request.DATA)
-        xml_root = bs.find('create')
-        dct_tmp_to_id = {}
-        for xml_node in xml_root.findall("node"):
-
-            lat = float(xml_node.get("lat"))
-            lon = float(xml_node.get("lon"))
-            if not model_changeset:
-                changeset_id = int(xml_node.get("changeset"))
-                model_changeset = Changeset.objects.get(id=changeset_id)
-
-            model_node = Node()
-            model_node.changeset = model_changeset
-            pnt = Point(lon, lat)
-            model_node.geom = pnt
-            tmp_id = int(xml_node.get("id"))
-            if tmp_id > 0:
-                model_node.parent_id = tmp_id
-            model_node.save()
-            root.append(etree.Element("node", old_id=tmp_id, new_id=model_node.id, new_version=1))
-
-            dct_tmp_to_id[tmp_id] = model_node.id
-
-        for xml_way in xml_root.findall("way"):
-            model_way = Way()
-            model_way.changeset = model_changeset
-            tmp_id = int(xml_way.get("id"))
-            if tmp_id > 0:
-                model_way.parent_id = tmp_id
-            model_way.save()
-
-            root.append(etree.Element("way", old_id=tmp_id, new_id=model_way.id, new_version=1))
-
-            cnt = 0
-            for nd in xml_way.findall("nd"):
-                nd_id = dct_tmp_to_id.get(int(nd.get("ref")), int(nd.get("ref")))
-                model_node = Node.objects.get(pk = nd_id)
-                WayNodes.objects.create(way=model_way, node=model_node, idx=cnt)
-                cnt += 1
-
-            for tag in xml_way.findall("tag"):
-                k = tag.get("k")
-                v = tag.get("v")
-                WayTag.objects.create(way=model_way, key=k, val=v)
-
-
-        kwargs = {'content_type': 'application/xml'}
-        return HttpResponse(etree.tostring(root, pretty_print=True), **kwargs)
-
-
 
 
 class NodeViewSet(APIView):
@@ -577,9 +506,7 @@ class MapViewSet(APIView):
     def get(self, request):
         #define the map boundaries
         left, bottom, right, top = [float(x) for x in request.GET.get("bbox").split(",")]
-        #poly = Polygon(((left, bottom), (left, top), (right, top), (right, bottom), (left, bottom)))
 
-        #nodes = Node.objects.filter(geom__within=poly)
         changeset = request.GET.get("changeset", None)
         data = '<?xml version="1.0" encoding="UTF-8"?>\n' + serialize_map((left, bottom, right, top), changeset=changeset)
         kwargs = {'content_type': 'application/xml'}

@@ -1,13 +1,14 @@
 {% extends 'base.html' %}
+
 {% block content %}
 
     <h2>Please login</h2>
     <ul>
     <li>
-        <a href="/login/google/">With google</a>
+        <a href="{% url 'social:begin' 'google'  %}?next={{ request.GET.next }}">Login with Google</a>
     </li>
     <li>
-        <a href="/login/google/">With twitter</a>
+        <a href="{% url 'social:begin' 'facebook'  %}?next={{ request.GET.next }}">Login with Facebook</a>
     </li>
     </ul>
 

@@ -1,6 +1,39 @@
 from django import forms
 import urllib
 import json
+import re
+from django.utils.translation import ugettext as _
+from django.core.validators import validate_email
+
+
+SEPARATOR_RE = re.compile(r'[,;]+')
+
+def validate_email_list(value):
+    emails = SEPARATOR_RE.split(value)
+    for email in emails:
+        validate_email(email)
+
+
+class EmailsListField(forms.CharField):
+
+    widget = forms.Textarea
+
+    def clean(self, value):
+        super(EmailsListField, self).clean(value)
+
+        emails = re.compile(r'[^\w\.\-\+@_]+').split(value)
+
+        if not emails:
+            raise forms.ValidationError(_(u'Enter at least one e-mail address.'))
+
+        for email in emails:
+            validate_email(email)
+
+        return emails
+
+
+class InvitationForm(forms.Form):
+    emails = EmailsListField()
 
 
 class CreateForm(forms.Form):
@@ -22,3 +55,7 @@ class CreateForm(forms.Form):
 
         location = first_result["geometry"]["location"]
         return location  # dict with lat/lng
+
+class CommentForm(forms.Form):
+    comment = forms.CharField(max_length=500, required=True)
+

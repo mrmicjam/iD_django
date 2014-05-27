@@ -308,6 +308,7 @@ iD.Connection = function() {
                     }, function(err) {
                         callback(err, changeset_id);
                     });
+                    // redirect to the new changeset
                 });
             });
         };

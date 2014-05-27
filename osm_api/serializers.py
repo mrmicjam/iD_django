@@ -173,6 +173,7 @@ def serialize_relation(model_relation, envelope=True, filter_nodes_ids=None, fil
 
 def serialize_map(bounds, changeset=None):
     # get the ways
+
     li_children = []
     # filter_node_ids = [nd.id for nd in nodes]
     # for node in nodes:
@@ -200,9 +201,9 @@ def serialize_map(bounds, changeset=None):
     qry_way = Way.objects.all()
     qry_node = Node.objects.all()
 
-    if model_changeset:
-        qry_way = qry_way.filter(changeset=model_changeset)
-        qry_node = qry_node.filter(changeset=model_changeset)
+
+    qry_way = qry_way.filter(changeset=model_changeset)
+    qry_node = qry_node.filter(changeset=model_changeset)
 
     for model_way in qry_way.filter(geom__bboverlaps=poly.wkt):
         xml_way = serialize_way(model_way, envelope=False, filter_nodes_ids=None, return_format="xml")
