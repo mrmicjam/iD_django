@@ -1,7 +1,9 @@
 # Django settings for iD_django project.
+import sys
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
+
 
 ADMINS = (
     # ('Your Name', 'your_email@example.com'),
@@ -31,6 +33,7 @@ else:
             'PORT': '',                      # Set to empty string for default. Not used with sqlite3.
         }
     }
+
 ALLOWED_HOSTS = (
 	"dataconcise.com",
 )
@@ -202,6 +205,7 @@ POSTGIS_SQL_PATH = '/usr/share/postgresql/9.1/contrib/postgis-1.5/'
 #TEST_RUNNER='django.contrib.gis.tests.run_tests'
 
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
+
 
 SOCIAL_AUTH_AUTHENTICATION_BACKENDS = (
 	'social.backends.google.GoogleOAuth2',
