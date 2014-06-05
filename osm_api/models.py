@@ -1,17 +1,23 @@
 from django.contrib.gis.db import models
 from django.contrib.auth.models import User
 from django.contrib.gis.geos.collections import Point, Polygon
+from projects.models import Project
 
 class Changeset(models.Model):
     created_by = models.ForeignKey(User)
     comment = models.TextField(blank=True, null=True)
-
+    parent = models.ForeignKey("Changeset", blank=True, null=True)
+    project = models.ForeignKey(Project, related_name="changesets")
+    timestamp = models.DateTimeField(auto_now=True)
+    is_main = models.NullBooleanField()
 
 class Node(models.Model):
     """Represents a single point"""
     geom = models.PointField(srid=4326)
     timestamp = models.DateTimeField(auto_now=True)
     changeset = models.ForeignKey(Changeset, related_name="nodes")
+
+    parent_id = models.IntegerField(blank=True, null=True)
 
     objects = models.GeoManager()
 
@@ -28,6 +34,7 @@ class Way(models.Model):
     nodes = models.ManyToManyField(Node, through='WayNodes')
     timestamp = models.DateTimeField(auto_now=True)
     geom = models.PolygonField(blank=True, null=True)
+    parent_id = models.IntegerField(blank=True, null=True)
 
 
     def update_geom(self):

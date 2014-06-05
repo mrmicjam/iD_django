@@ -1,3 +1,51 @@
+function _get_project(){
+    var myRegexp = /&project=([^&]+)/g;
+    var match = myRegexp.exec(location.href);
+    if (match !== null){
+        return match[1];
+    } else {
+        return null;
+    }
+}
+
+function _get_project_url_param(){
+    var proj = _get_project();
+    if (proj !== null){
+        return "&project=" + proj;
+    } else {
+        return "";
+    }
+}
+
+function _apnd_proj(url){
+    url += _get_project_url_param();
+    return url;
+}
+
+function _get_chgst(){
+    var myRegexp = /&changeset=([^&]+)/g;
+    var match = myRegexp.exec(location.href);
+    if (match !== null){
+        return match[1];
+    } else {
+        return null;
+    }
+}
+
+function _get_chgst_url_param(){
+    var chgst = _get_chgst();
+    if (chgst !== null){
+        return "&changeset=" + chgst;
+    } else {
+        return "";
+    }
+}
+
+function _apnd_chgst_(url){
+    url += _get_chgst_url_param();
+    return url;
+}
+
 iD.Connection = function() {
 
     var event = d3.dispatch('authenticating', 'authenticated', 'auth', 'loading', 'load', 'loaded'),
@@ -242,14 +290,14 @@ iD.Connection = function() {
 
         oauth.xhr({
                 method: 'PUT',
-                path: '/api/0.6/changeset/create',
+                path: _apnd_proj(_apnd_chgst_('/api/0.6/changeset/create?')),
                 options: { header: { 'Content-Type': 'application/xml' } },
                 content: JXON.stringify(connection.changesetJXON(connection.changesetTags(comment, imagery_used)))
             }, function(err, changeset_id) {
                 if (err) return callback(err);
                 oauth.xhr({
                     method: 'POST',
-                    path: '/api/0.6/changeset/' + changeset_id + '/upload',
+                    path: _apnd_chgst_('/api/0.6/changeset/' + changeset_id + '/upload?'),
                     options: { header: { 'Content-Type': 'application/xml' } },
                     content: JXON.stringify(connection.osmChangeJXON(user.id, changeset_id, changes))
                 }, function(err) {
@@ -260,6 +308,7 @@ iD.Connection = function() {
                     }, function(err) {
                         callback(err, changeset_id);
                     });
+                    // redirect to the new changeset
                 });
             });
         };
@@ -320,7 +369,10 @@ iD.Connection = function() {
                 projection.invert([x, y]),
                 projection.invert([x + ts, y + ts])];
 
-            return url + '/api/0.6/map?bbox=' + [b[0][0], b[1][1], b[1][0], b[0][1]];
+            return_url =  url + '/api/0.6/map?bbox=' + [b[0][0], b[1][1], b[1][0], b[0][1]];
+            return_url = _apnd_chgst_(return_url);
+
+            return return_url;
         }
 
         _.filter(inflight, function(v, i) {

@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+
+    <h2><a href="/create_project/">Create a new project</a></h2>
+
+
+    {% if user.user_projects.all %}
+        <h2>Or select an existing project</h2>
+        <ul>
+        {% for u_proj in user.user_projects.all %}
+            <li>
+                <a href="/project/{{ u_proj.project.id }}">{{ u_proj.project.name }}</a>
+            </li>
+        {% endfor %}
+        </ul>
+    {% endif %}
+
+{% endblock %}
