@@ -1,9 +1,7 @@
 # Django settings for iD_django project.
-import sys
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
-
 
 ADMINS = (
     # ('Your Name', 'your_email@example.com'),
@@ -33,7 +31,9 @@ else:
             'PORT': '',                      # Set to empty string for default. Not used with sqlite3.
         }
     }
-
+ALLOWED_HOSTS = (
+	"dataconcise.com",
+)
 
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
@@ -203,7 +203,15 @@ POSTGIS_SQL_PATH = '/usr/share/postgresql/9.1/contrib/postgis-1.5/'
 
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/'
 
+SOCIAL_AUTH_AUTHENTICATION_BACKENDS = (
+	'social.backends.google.GoogleOAuth2',
+	'social.backends.twitter.TwitterOAuth'
+)
 
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '681732485673-2fh3otuk3hs820ld7214odi2nodmavnj.apps.googleusercontent.com'
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '5JLXTKrD4mYK6gZM3YRvKB23'
+#SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = ['https://www.googleapis.com/auth/calendar']
+	
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_HOST_USER = "dataconcise@gmail.com"
 EMAIL_HOST_PASSWORD = "Sven*8398"
@@ -211,4 +219,4 @@ EMAIL_USE_TLS = True
 EMAIL_PORT = 587
 SERVER_EMAIL="dataconcise@gmail.com"
 
-SITE_DOMAIN = "http://127.0.0.1:8000"
+SITE_DOMAIN = "http://54.226.23.149:8081"
