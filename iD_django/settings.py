@@ -218,7 +218,7 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '5JLXTKrD4mYK6gZM3YRvKB23'
 	
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_HOST_USER = "dataconcise@gmail.com"
-EMAIL_HOST_PASSWORD = "Sven*8398"
+EMAIL_HOST_PASSWORD = "*******"
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
 SERVER_EMAIL="dataconcise@gmail.com"
